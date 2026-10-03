@@ -123,6 +123,51 @@
     try { localStorage.setItem('rgmc.home', 'fatto'); } catch (e) {}
   });
 
+
+  /* ---- memoria delle credenziali per conto dell'app ----
+     Su iPhone Safari non lascia scrivere la memoria locale a una pagina che
+     sta dentro il riquadro di un altro sito. Questa pagina invece è "di casa",
+     quindi le tiene lei e gliele ripassa al caricamento. */
+  var CHIAVE = 'rgmc.credenziali';
+
+  function leggiCredenziali() {
+    try { return JSON.parse(localStorage.getItem(CHIAVE) || 'null'); }
+    catch (e) { return null; }
+  }
+  function scriviCredenziali(v) {
+    try {
+      if (v && v.first && v.last) localStorage.setItem(CHIAVE, JSON.stringify(v));
+      else localStorage.removeItem(CHIAVE);
+    } catch (e) { /* memoria piena o bloccata: pazienza */ }
+  }
+
+  // risponde solo a chi sta davvero dentro il nostro riquadro, non a finestre
+  // esterne che provassero a chiedere
+  function eNostro(w) {
+    var quadro = $('app');
+    try {
+      if (!w || w === window || !quadro) return false;
+      for (var i = 0; i < 6; i++) {
+        if (w === quadro.contentWindow) return true;
+        if (!w.parent || w.parent === w) return false;
+        w = w.parent;
+      }
+    } catch (e) { /* finestra di un altro sito: non insisto */ }
+    return false;
+  }
+
+  window.addEventListener('message', function (ev) {
+    var d = ev.data;
+    if (!d || d.rgmc !== 1 || !eNostro(ev.source)) return;
+    if (d.tipo === 'ciao') {
+      try {
+        ev.source.postMessage({ rgmc: 1, tipo: 'host', valore: leggiCredenziali() }, ev.origin);
+      } catch (e) { /* niente da fare */ }
+    } else if (d.tipo === 'salva') {
+      scriviCredenziali(d.valore);
+    }
+  });
+
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(function () { /* pazienza */ });
   }
