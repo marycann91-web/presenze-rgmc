@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Presenze RGMC</title>
+
+<!-- ===================================================================
+     UNICA COSA DA CONTROLLARE
+     Qui sotto c'è il link della webapp. Se un giorno ridistribuisci e
+     l'indirizzo cambia, sostituiscilo qui e ricarica il file.
+     =================================================================== -->
+<script>
+  var APP_URL = 'https://script.google.com/macros/s/AKfycby0XujmJ3Jn96JipPjsJZE-icerq4q_6KVu_SgWMTNKDJXDQarLzD5MCb8YJOpg5Vlm/exec';
+</script>
+
+<link rel="manifest" href="manifest.webmanifest">
+<!-- lo stesso avorio della barra dell'app: così la striscia con ora e
+     batteria si confonde con la pagina e resta leggibile (testo scuro) -->
+<meta name="theme-color" content="#f6f3ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<!-- "default" fa partire l'app sotto la barra di stato dell'iPhone, invece
+     di passarci sotto: senza, l'ora e la batteria coprono la cima della pagina -->
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Presenze RGMC">
+<link rel="apple-touch-icon" href="icona-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icona-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icona-192.png">
+
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;background:#f6f3ec;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#191b1a}
+  /* Il riquadro dell'app si tiene alla larga dal notch, dalla barra di stato
+     e dalla barretta di chiusura in basso: su iPhone quelle zone stanno
+     sopra la pagina, e quello che ci finisce sotto non si vede né si tocca.
+     Sui telefoni senza notch e sul computer i valori valgono zero, quindi
+     non cambia niente. */
+  /* un <iframe> non si lascia stirare da top+bottom come gli altri elementi:
+     la misura va detta per intero, togliendo le zone coperte */
+  #app{position:fixed;border:0;display:block;
+    top:env(safe-area-inset-top,0px);
+    left:env(safe-area-inset-left,0px);
+    width:calc(100% - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));
+    height:calc(100% - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+  body.pronto #avvio{display:none}
+
+  #avvio{position:fixed;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:18px;
+    padding:calc(28px + env(safe-area-inset-top,0px)) 22px
+            calc(28px + env(safe-area-inset-bottom,0px));
+    background:#f6f3ec;text-align:center;z-index:5}
+  #avvio img{width:88px;height:88px;border-radius:22px;
+    box-shadow:0 12px 30px rgba(15,58,44,.22)}
+  #avvio h1{margin:0;font-size:1.18rem;color:#0f3a2c;letter-spacing:-.01em}
+  #avvio p{margin:0;max-width:30ch;font-size:.9rem;line-height:1.55;color:#6b6660}
+  .spin{width:30px;height:30px;border:3px solid #ece5d9;border-top-color:#0f3a2c;
+    border-radius:50%;animation:g .8s linear infinite}
+  @keyframes g{to{transform:rotate(360deg)}}
+  .btn{display:inline-block;border:0;border-radius:12px;padding:13px 22px;
+    background:#0f3a2c;color:#fff;font-weight:700;font-size:.95rem;
+    text-decoration:none;font-family:inherit;cursor:pointer}
+
+  /* istruzioni: si vedono solo quando la pagina è aperta nel browser
+     e non è ancora stata salvata sulla home */
+  #come{position:fixed;left:12px;right:12px;z-index:6;
+    bottom:calc(12px + env(safe-area-inset-bottom,0px));
+    background:#fff;border:1px solid #e6ded0;border-radius:16px;padding:14px 16px;
+    box-shadow:0 10px 30px rgba(15,58,44,.14);display:none}
+  body.mostra-come #come{display:block}
+  #come b{display:block;color:#0f3a2c;font-size:.92rem;margin-bottom:5px}
+  #come p{margin:0;font-size:.84rem;line-height:1.55;color:#6b6660}
+  #come button{position:absolute;top:8px;right:10px;border:0;background:none;
+    font-size:1.15rem;color:#a9a196;cursor:pointer;line-height:1}
+</style>
+</head>
+<body>
+
+<div id="avvio">
+  <img src="icona-192.png" alt="">
+  <h1>Presenze RGMC</h1>
+  <div class="spin" id="attesa"></div>
+  <p id="msg">Apro l'app del coro…</p>
+  <a class="btn" id="diretto" href="#" style="display:none">Apri l'app</a>
+</div>
+
+<iframe id="app" title="Presenze River Gospel Mass Choir" allow="clipboard-write"></iframe>
+
+<div id="come">
+  <button type="button" id="chiudiCome" aria-label="Chiudi">&times;</button>
+  <b id="comeTit">Tienila a portata di mano</b>
+  <p id="comeTxt"></p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+
+  $('diretto').href = APP_URL;
+  $('app').src = APP_URL;
+
+  // quando l'app dentro è pronta, tolgo la schermata di attesa
+  var fatto = false;
+  function pronto() {
+    if (fatto) return;
+    fatto = true;
+    document.body.classList.add('pronto');
+  }
+  $('app').addEventListener('load', pronto);
+  setTimeout(pronto, 6000);
+
+  // se dopo 12 secondi non è successo niente, offro il link diretto
+  setTimeout(function () {
+    if (document.body.classList.contains('pronto')) return;
+    $('attesa').style.display = 'none';
+    $('msg').textContent = 'L’app ci sta mettendo più del solito. ' +
+      'Puoi aprirla direttamente con il pulsante qui sotto.';
+    $('diretto').style.display = 'inline-block';
+  }, 12000);
+
+  /* ---- istruzioni per salvarla sulla home ---- */
+  var standalone = window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+  var visto = false;
+  try { visto = localStorage.getItem('rgmc.home') === 'fatto'; } catch (e) {}
+
+  if (!standalone && !visto) {
+    var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    $('comeTxt').textContent = ios
+      ? 'Tocca il pulsante Condividi in basso, poi "Aggiungi a Home". ' +
+        'L’app comparirà fra le altre con la sua icona.'
+      : 'Apri il menu del browser (i tre puntini) e scegli ' +
+        '"Installa app" oppure "Aggiungi a schermata Home".';
+    setTimeout(function () { document.body.classList.add('mostra-come'); }, 2500);
+  }
+  $('chiudiCome').addEventListener('click', function () {
+    document.body.classList.remove('mostra-come');
+    try { localStorage.setItem('rgmc.home', 'fatto'); } catch (e) {}
+  });
+
+
+  /* ---- memoria delle credenziali per conto dell'app ----
+     Su iPhone Safari non lascia scrivere la memoria locale a una pagina che
+     sta dentro il riquadro di un altro sito. Questa pagina invece è "di casa",
+     quindi le tiene lei e gliele ripassa al caricamento. */
+  var CHIAVE = 'rgmc.credenziali';
+
+  function leggiCredenziali() {
+    try { return JSON.parse(localStorage.getItem(CHIAVE) || 'null'); }
+    catch (e) { return null; }
+  }
+  function scriviCredenziali(v) {
+    try {
+      if (v && v.first && v.last) localStorage.setItem(CHIAVE, JSON.stringify(v));
+      else localStorage.removeItem(CHIAVE);
+    } catch (e) { /* memoria piena o bloccata: pazienza */ }
+  }
+
+  // risponde solo a chi sta davvero dentro il nostro riquadro, non a finestre
+  // esterne che provassero a chiedere
+  function eNostro(w) {
+    var quadro = $('app');
+    try {
+      if (!w || w === window || !quadro) return false;
+      for (var i = 0; i < 6; i++) {
+        if (w === quadro.contentWindow) return true;
+        if (!w.parent || w.parent === w) return false;
+        w = w.parent;
+      }
+    } catch (e) { /* finestra di un altro sito: non insisto */ }
+    return false;
+  }
+
+  window.addEventListener('message', function (ev) {
+    var d = ev.data;
+    if (!d || d.rgmc !== 1 || !eNostro(ev.source)) return;
+    if (d.tipo === 'ciao') {
+      try {
+        ev.source.postMessage({ rgmc: 1, tipo: 'host', valore: leggiCredenziali() }, ev.origin);
+      } catch (e) { /* niente da fare */ }
+    } else if (d.tipo === 'salva') {
+      scriviCredenziali(d.valore);
+    }
+  });
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* pazienza */ });
+  }
+})();
+</script>
+</body>
+</html>
